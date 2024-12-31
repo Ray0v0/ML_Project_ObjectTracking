@@ -5,6 +5,7 @@ import os
 import time
 import traceback
 
+
 #TODO: 改成自己的路径
 try:
     sys.path.append(glob.glob('D:/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
@@ -25,6 +26,7 @@ from controller.daf_controller import DAFController
 from controller.carla_auto_pilot import CarlaAutoPilot
 from controller.path_follower import PathFollower
 from controller.manual_controller import ManualController
+from controller.follow_track_controller import FollowTrackController
 
 from perceiver.god_perceiver import GodPerceiver
 from perceiver.blind_perceiver import BlindPerceiver
@@ -182,7 +184,7 @@ if __name__ == '__main__':
 
     # 后车的控制算法使用简化兼容版DAFController，感知算法没写，暂时使用全知全能的神GodPerceiver占位
     
-    # for i in range(1, 21):
-    #     file = 'ride' + str(i) + '.p'
-    start(controller_to_follow=ManualController(), perceiver_to_follow=BlindPerceiver(),
-          controller_follow=DAFController(), perceiver_follow=GodPerceiver())
+    for i in range(1, 21):
+        file = 'ride' + str(i) + '.p'
+        start(controller_to_follow=PathFollower(file), perceiver_to_follow=BlindPerceiver(),
+              controller_follow=FollowTrackController(), perceiver_follow=GodPerceiver())
