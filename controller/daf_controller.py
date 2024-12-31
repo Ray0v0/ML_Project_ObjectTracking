@@ -4,7 +4,8 @@ from manager.pose_manager import PoseManager
 from manager.vec3d_utils import get_magnitude, get_angle
 import carla
 
-class DfaController(TraditionalController):
+# 简化的daf_controller
+class DAFController(TraditionalController):
     def __init__(self):
         self.car_length = 6
         self.intent_distance = self.car_length
@@ -35,6 +36,8 @@ class DfaController(TraditionalController):
 
 
     def predict_control(self, info):
+        # 通过前后车坐标速度等信息计算距离和转向角（其实用不到这么多信息；或者说，如果这些信息已经知道了，照道理应该能写一个更好的控制算法）
+        # 但因为懒，就这样子暂且兼容一下吧
         distance = PoseManager.get_distance(info.pose_follow, info.pose_to_follow)
         speed = get_magnitude(info.velocity_follow)
         vec_between_cars = carla.Vector3D(info.pose_to_follow.location.x - info.pose_follow.location.x,

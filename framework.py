@@ -20,7 +20,7 @@ from manager.sync_carla_manager import SyncCarlaManager
 from manager.pose_manager import PoseManager
 from manager.display_manager import DisplayManager
 
-from controller.dfa_controller import DfaController
+from controller.daf_controller import DAFController
 from controller.carla_auto_pilot import CarlaAutoPilot
 from controller.path_follower import PathFollower
 
@@ -146,11 +146,13 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 # 后车通过油门刹车转向控制
                 assert(controller_follow.is_traditional_controller())
 
-                info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow)
+                # 后车感知
+                info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=world.get_map())
+                # 后车控制
                 vehicle_follow_control = controller_follow.predict_control(info_follow)
-
                 vehicle_follow.apply_control(vehicle_follow_control)
 
+                # 绘图
                 fps_current = round(1.0 / snapshot.timestamp.delta_seconds)
                 display_manager.draw(image_rgb)
                 display_manager.write_fps(fps_current)
@@ -162,4 +164,18 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
             actor.destroy()
 
 if __name__ == '__main__':
-    start(controller_to_follow=PathFollower('ride7.p'), controller_follow=DfaController(), perceiver_to_follow=BlindPerceiver(), perceiver_follow=GodPerceiver())
+    # 整个任务分为两个步骤
+    # 第一步：感知，感知器perceiver将环境感知信息（Camera图像，地图信息，后车Pose，后车Velocity等）传入perceiver，perceiver输出一个数据传输对象info，包含经过深度处理的信息（前车Pose，前车Velocity等）
+    # 第二步：控制，将对应的数据传输对象info传入控制器controller，控制器输出车辆控制
+
+    # xxx_to_follow 表示被跟的车，即前车
+    # xxx_follow 表示跟的车，即后车
+
+    # 下面定义了前车和后车的perceiver与controller算法
+    # 为了让前车能够循迹或使用carla的auto_pilot()方法，创建了两个特殊的controller：PathFollower和AutoPilotController
+    # 由于前车不需要感知环境信息，BlindPerceiver()被传入
+    # 出于可拓展性的考量，前车也可以使用其他自定义的自动寻路算法，只需要将对应的perceiver和controller传入即可
+
+    # 后车的控制算法使用简化兼容版DAFController，感知算法没写，暂时使用全知全能的神GodPerceiver占位
+    start(controller_to_follow=PathFollower('ride7.p'), perceiver_to_follow=BlindPerceiver(),
+          controller_follow=DAFController(), perceiver_follow=GodPerceiver())
