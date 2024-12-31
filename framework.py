@@ -2,6 +2,7 @@
 import sys
 import glob
 import os
+import time
 import traceback
 
 #TODO: 改成自己的路径
@@ -23,6 +24,7 @@ from manager.display_manager import DisplayManager
 from controller.daf_controller import DAFController
 from controller.carla_auto_pilot import CarlaAutoPilot
 from controller.path_follower import PathFollower
+from controller.manual_controller import ManualController
 
 from perceiver.god_perceiver import GodPerceiver
 from perceiver.blind_perceiver import BlindPerceiver
@@ -37,6 +39,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
         client = carla.Client('127.0.0.1', 2000)
         client.set_timeout(2.0)
         world = client.get_world()
+        map = world.get_map()
         blueprint_library = world.get_blueprint_library()
 
         # 生成前车
@@ -147,7 +150,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 assert(controller_follow.is_traditional_controller())
 
                 # 后车感知
-                info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=world.get_map())
+                info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=map)
                 # 后车控制
                 vehicle_follow_control = controller_follow.predict_control(info_follow)
                 vehicle_follow.apply_control(vehicle_follow_control)
@@ -159,6 +162,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 display_manager.flip()
     except:
         traceback.print_exc()
+        sys.exit(0)
     finally:
         for actor in actor_list:
             actor.destroy()
@@ -177,5 +181,8 @@ if __name__ == '__main__':
     # 出于可拓展性的考量，前车也可以使用其他自定义的自动寻路算法，只需要将对应的perceiver和controller传入即可
 
     # 后车的控制算法使用简化兼容版DAFController，感知算法没写，暂时使用全知全能的神GodPerceiver占位
-    start(controller_to_follow=PathFollower('ride7.p'), perceiver_to_follow=BlindPerceiver(),
+    
+    # for i in range(1, 21):
+    #     file = 'ride' + str(i) + '.p'
+    start(controller_to_follow=ManualController(), perceiver_to_follow=BlindPerceiver(),
           controller_follow=DAFController(), perceiver_follow=GodPerceiver())
