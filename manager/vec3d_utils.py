@@ -20,6 +20,12 @@ def get_angle(vec1, vec2):
         return 0
 
     cos_angle = dot_product / (vec1_mag * vec2_mag)
+
+    if cos_angle > 1:
+        cos_angle = 1
+    elif cos_angle < -1:
+        cos_angle = -1
+
     angle_rad = math.acos(cos_angle)
     angle_deg = math.degrees(angle_rad)
 
