@@ -1,10 +1,14 @@
+from agents.tools.misc import draw_waypoints
 from controller.traditional_controller import TraditionalController
 from manager.pose_manager import PoseManager
-from manager.vec3d_utils import get_magnitude, get_angle
+from manager.vec3d_utils import get_angle
+from agents.navigation.global_route_planner import GlobalRoutePlanner
+from agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO
 import carla
 
-# 记录前车历史坐标点并循迹
-class FollowTrackController(TraditionalController):
+
+
+class DAFWithNavigatorController(TraditionalController):
     def __init__(self):
         self.car_length = 6
         self.intent_distance = self.car_length
@@ -29,41 +33,69 @@ class FollowTrackController(TraditionalController):
         self.brake = 0
         self.steer = 0
 
-        self.checkpoints = []
-        self.check_distance = 5
+        self.dao = None
+        self.nav = None
+        self.world = None
 
+        self.debug_mode = False
+
+
+    def debug(self, world):
+        self.world = world
+        self.debug_mode = True
 
     def predict_control(self, info):
-        self.checkpoints.append(info.pose_to_follow)
 
-        while len(self.checkpoints) > 1:
-            if PoseManager.get_distance(info.pose_follow, self.checkpoints[0]) < self.check_distance:
-                self.checkpoints.pop(0)
-            else:
-                break
+        if self.dao is None:
+            self.dao = GlobalRoutePlannerDAO(info.map, 1)
+            self.nav = GlobalRoutePlanner(self.dao)
+            self.nav.setup()
+
+        nav_points = self.nav.trace_route(info.pose_follow.location, info.pose_to_follow.location)
+
+        nav_way_points = []
+        for nav_point in nav_points:
+            nav_way_points.append(nav_point[0])
+
+        if self.debug_mode:
+            draw_waypoints(self.world, nav_way_points)
+
+        target_pose = nav_points[1][0].transform if len(nav_points) > 30 else info.pose_to_follow
 
         distance = PoseManager.get_distance(info.pose_follow, info.pose_to_follow)
         self.dist_change = self.distance - self.prev_distance
         self.prev_distance = self.distance
         self.distance = distance - self.intent_distance
 
-        vec_to_next_checkpoint = carla.Vector3D(self.checkpoints[0].location.x - info.pose_follow.location.x,
-                                          self.checkpoints[0].location.y - info.pose_follow.location.y,
-                                          self.checkpoints[0].location.z - info.pose_follow.location.z)
+        vec_to_target = carla.Vector3D(target_pose.location.x - info.pose_follow.location.x,
+                                       target_pose.location.y - info.pose_follow.location.y,
+                                       target_pose.location.z - info.pose_follow.location.z)
         pose_in_front_of_follow = PoseManager.create_pose_in_front_of(info.pose_follow, 1)
+
+        vec_to_pose_to_follow = carla.Vector3D(info.pose_to_follow.location.x - info.pose_follow.location.x,
+                                               info.pose_to_follow.location.y - info.pose_follow.location.y,
+                                               info.pose_to_follow.location.z - info.pose_follow.location.z)
+
+        angle_delta = get_angle(vec_to_target, vec_to_pose_to_follow)
+
         vec_forward = carla.Vector3D(pose_in_front_of_follow.location.x - info.pose_follow.location.x,
                                      pose_in_front_of_follow.location.y - info.pose_follow.location.y,
                                      pose_in_front_of_follow.location.z - info.pose_follow.location.z)
-        self.angle = get_angle(vec_to_next_checkpoint, vec_forward)
+
+        if abs(angle_delta) < 40:
+            vec_to_target = vec_to_pose_to_follow
+
+        self.angle = get_angle(vec_to_target, vec_forward)
         self.angle_change = self.angle - self.prev_angle
         self.prev_angle = self.angle
 
         self.decide_steer()
         self.decide_throttle_and_brake()
 
-        print("\rthrottle: %.2f \tsteer: %.2f \tbrake: %.2f" %(self.throttle, self.steer, self.brake), end='')
+        print("\rthrottle: %.2f \tsteer: %.2f \tbrake: %.2f" % (self.throttle, self.steer, self.brake), end='')
 
         return carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=self.brake)
+
 
     # 决策油门与刹车
     def decide_throttle_and_brake(self):
@@ -101,4 +133,3 @@ class FollowTrackController(TraditionalController):
             self.steer = 1
         if self.steer < -1:
             self.steer = -1
-
