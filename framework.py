@@ -4,16 +4,26 @@ import glob
 import os
 import time
 import traceback
+import numpy as np
+import cv2  # 在文件开头添加
 
 
 #TODO: 改成自己的路径
 try:
-    sys.path.append(glob.glob('D:/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
+    carla_path = 'E:/VIVADO/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
-        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
+        'win-amd64' if os.name == 'nt' else 'linux-x86_64')
+    
+    # 添加调试信息
+    matching_files = glob.glob(carla_path)
+    if not matching_files:
+        print(f"在路径下未找到匹配的文件: {carla_path}")
+    else:
+        print(f"找到文件: {matching_files[0]}")
+        sys.path.append(matching_files[0])
 except IndexError:
-    pass
+    print("CARLA_0.9.8 not found")
 
 import carla
 import random
@@ -27,9 +37,11 @@ from controller.carla_auto_pilot import CarlaAutoPilot
 from controller.path_follower import PathFollower
 from controller.manual_controller import ManualController
 from controller.follow_track_controller import FollowTrackController
+from controller.normal_controller import NormalController
 
 from perceiver.god_perceiver import GodPerceiver
 from perceiver.blind_perceiver import BlindPerceiver
+from perceiver.normal_percerver import NormalPerceiver
 
 
 def start(controller_to_follow, controller_follow, perceiver_to_follow, perceiver_follow):
@@ -125,6 +137,15 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 # 获取当前帧世界信息与传感器信息
                 snapshot, image_rgb = sync_mode.tick(timeout=2.0)
 
+                # 将CARLA图像转换为NumPy数组
+                array = np.frombuffer(image_rgb.raw_data, dtype=np.uint8)
+                array = array.reshape((image_rgb.height, image_rgb.width, 4))
+                array = array[:, :, :3]  # 只保留RGB通道
+                
+                # 添加以下代码来显示RGB相机图像
+                cv2.imshow('RGB Camera View', array)
+                cv2.waitKey(1)
+
                 # 如果前车循迹
                 if type(controller_to_follow) is PathFollower:
                     # 如果路径结束则退出
@@ -151,21 +172,34 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 # 后车通过油门刹车转向控制
                 assert(controller_follow.is_traditional_controller())
 
-                # 后车感知
-                info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=map)
+                # 后车感知 - 使用转换后的数组
+                info_follow = perceiver_follow.perceive(
+                    velocity_follow=velocity_follow, 
+                    pose_follow=pose_follow, 
+                    map=map,
+                    camera_image=array.copy()  # 传入数组的副本
+                )
+
+                # 确保pose_to_follow不为None
+                if info_follow.pose_to_follow is None:
+                    print("未检测到前车，跳过当前帧")
+                    continue
+
                 # 后车控制
                 vehicle_follow_control = controller_follow.predict_control(info_follow)
                 vehicle_follow.apply_control(vehicle_follow_control)
 
-                # 绘图
+                # 绘图 - 使用原始图像数据
                 fps_current = round(1.0 / snapshot.timestamp.delta_seconds)
-                display_manager.draw(image_rgb)
+                display_manager.draw(image_rgb)  # 使用原始CARLA图像而不是NumPy数组
                 display_manager.write_fps(fps_current)
                 display_manager.flip()
-    except:
+
+    except Exception as e:
+        print(f"发生错误: {str(e)}")
         traceback.print_exc()
-        sys.exit(0)
     finally:
+        cv2.destroyAllWindows()  # 关闭所有OpenCV窗口
         for actor in actor_list:
             actor.destroy()
 
@@ -187,4 +221,4 @@ if __name__ == '__main__':
     for i in range(1, 21):
         file = 'ride' + str(i) + '.p'
         start(controller_to_follow=PathFollower(file), perceiver_to_follow=BlindPerceiver(),
-              controller_follow=FollowTrackController(), perceiver_follow=GodPerceiver())
+              controller_follow= NormalController(), perceiver_follow=NormalPerceiver())
