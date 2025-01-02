@@ -47,3 +47,6 @@ class DisplayManager:
     # 刷新画面
     def flip(self):
         pygame.display.flip()
+
+    def quit(self):
+        pygame.quit()

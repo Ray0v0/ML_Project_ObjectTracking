@@ -38,25 +38,29 @@ class DAFController(TraditionalController):
     def predict_control(self, info):
         # 通过前后车坐标速度等信息计算距离和转向角（其实用不到这么多信息；或者说，如果这些信息已经知道了，照道理应该能写一个更好的控制算法）
         # 但因为懒，就这样子暂且兼容一下吧
-        distance = PoseManager.get_distance(info.pose_follow, info.pose_to_follow)
-        speed = get_magnitude(info.velocity_follow)
-        vec_between_cars = carla.Vector3D(info.pose_to_follow.location.x - info.pose_follow.location.x,
-                                          info.pose_to_follow.location.y - info.pose_follow.location.y,
-                                          info.pose_to_follow.location.z - info.pose_follow.location.z)
-        pose_in_front_of_follow = PoseManager.create_pose_in_front_of(info.pose_follow, 1)
-        vec_forward = carla.Vector3D(pose_in_front_of_follow.location.x - info.pose_follow.location.x,
-                                     pose_in_front_of_follow.location.y - info.pose_follow.location.y,
-                                     pose_in_front_of_follow.location.z - info.pose_follow.location.z)
-        angle_between_cars = get_angle(vec_between_cars, vec_forward)
+        # distance = PoseManager.get_distance(info.pose_follow, info.pose_to_follow)
+        # speed = get_magnitude(info.velocity_follow)
+        # vec_between_cars = carla.Vector3D(info.pose_to_follow.location.x - info.pose_follow.location.x,
+        #                                   info.pose_to_follow.location.y - info.pose_follow.location.y,
+        #                                   info.pose_to_follow.location.z - info.pose_follow.location.z)
+        # pose_in_front_of_follow = PoseManager.create_pose_in_front_of(info.pose_follow, 1)
+        # vec_forward = carla.Vector3D(pose_in_front_of_follow.location.x - info.pose_follow.location.x,
+        #                              pose_in_front_of_follow.location.y - info.pose_follow.location.y,
+        #                              pose_in_front_of_follow.location.z - info.pose_follow.location.z)
+        # angle_between_cars = get_angle(vec_between_cars, vec_forward)
 
         # print(vec_between_cars)
         # print(vec_forward)
 
-        # print("distance: %.2f \tangle: %.2f" % (distance, angle_between_cars), end='')
+        if info.trust_worth is False:
+            return carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=self.brake)
+
+        distance = info.distance
+        angle_between_cars = info.angle
+
+        print("distance: %.2f \tangle: %.2f" % (distance, angle_between_cars), end='')
 
         # self.emergency = self.whether_emergency(distance)
-
-        self.speed = speed
 
         self.dist_change = self.distance - self.prev_distance
         self.prev_distance = self.distance
@@ -76,7 +80,7 @@ class DAFController(TraditionalController):
         #     self.throttle = 0
         #     self.brake = 1
 
-        print("\rthrottle: %.2f \tsteer: %.2f \tbrake: %.2f" %(self.throttle, self.steer, self.brake), end='')
+        print("throttle: %.2f \tsteer: %.2f \tbrake: %.2f" %(self.throttle, self.steer, self.brake), end='')
 
         return carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=self.brake)
 

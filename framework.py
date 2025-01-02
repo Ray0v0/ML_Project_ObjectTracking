@@ -4,6 +4,7 @@ import glob
 import os
 import time
 import traceback
+import pygame
 
 #TODO: 改成自己的路径
 try:
@@ -28,10 +29,12 @@ from controller.manual_controller import ManualController
 from controller.daf_follow_track_controller import DAFFollowTrackController
 from controller.daf_with_navigator_controller import DAFWithNavigatorController
 from controller.dqn_controller import DQNController
+from controller.normal_controller import NormalController
 
 
 from perceiver.god_perceiver import GodPerceiver
 from perceiver.blind_perceiver import BlindPerceiver
+from perceiver.distance_and_angle_perceiver import DistanceAndAnglePerceiver
 
 
 def start(controller_to_follow, controller_follow, perceiver_to_follow, perceiver_follow, epoch=1):
@@ -158,7 +161,15 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     assert(controller_follow.is_traditional_controller())
 
                     # 后车感知
-                    info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=map)
+                    info_follow = perceiver_follow.perceive(
+                        velocity_follow=velocity_follow,
+                        pose_follow=pose_follow,
+                        map=map,
+                        camera_image=image_rgb  # 传入数组的副本
+                    )
+
+                    # info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=map)
+
                     # 后车控制
                     vehicle_follow_control = controller_follow.predict_control(info_follow)
                     vehicle_follow.apply_control(vehicle_follow_control)
@@ -179,6 +190,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     vehicle.apply_control(carla.VehicleControl())
                     vehicle.destroy()
 
+            pygame.quit()
 
     except:
         traceback.print_exc()
@@ -191,6 +203,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
             if vehicle.is_alive:
                 vehicle.apply_control(carla.VehicleControl())
                 vehicle.destroy()
+        pygame.quit()
         sys.exit(0)
     finally:
         for sensor in sensor_list:
@@ -226,4 +239,4 @@ if __name__ == '__main__':
     start(controller_to_follow=PathFollower('ride7.p'),
           perceiver_to_follow=BlindPerceiver(),
           controller_follow=DAFController(),
-          perceiver_follow=GodPerceiver())
+          perceiver_follow=DistanceAndAnglePerceiver())
