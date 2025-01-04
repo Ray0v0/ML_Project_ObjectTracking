@@ -58,7 +58,7 @@ class DAFController(TraditionalController):
         distance = info.distance
         angle_between_cars = info.angle
 
-        print("distance: %.2f \tangle: %.2f" % (distance, angle_between_cars), end='')
+        print("distance: %.2f \tangle: %.2f" % (distance, angle_between_cars))
 
         # self.emergency = self.whether_emergency(distance)
 
@@ -80,13 +80,13 @@ class DAFController(TraditionalController):
         #     self.throttle = 0
         #     self.brake = 1
 
-        print("throttle: %.2f \tsteer: %.2f \tbrake: %.2f" %(self.throttle, self.steer, self.brake), end='')
+        print("throttle: %.2f \tsteer: %.2f \tbrake: %.2f" %(self.throttle, self.steer, self.brake))
 
         return carla.VehicleControl(throttle=self.throttle, steer=self.steer, brake=self.brake)
 
     # 决策油门与刹车
     def decide_throttle_and_brake(self):
-        if self.dist_change > 0 and self.distance > 0:
+        if self.dist_change > 0 and self.distance > 0 or self.distance > 15:
             # 加速！加速！加速！
             self.throttle = 1
             self.brake = 0

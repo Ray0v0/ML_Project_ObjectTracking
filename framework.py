@@ -6,6 +6,9 @@ import time
 import traceback
 import pygame
 
+from dto.daf_info import DAFInfo
+from manager.vec3d_utils import get_angle
+
 #TODO: 改成自己的路径
 try:
     sys.path.append(glob.glob('D:/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
@@ -108,7 +111,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
             sensor_list.append(camera_rgb)
 
             # 设置最大帧率
-            fps_max = 30
+            fps_max = 25
 
             # 初始化pygame
             display_manager = DisplayManager()
@@ -153,6 +156,19 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     pose_follow = vehicle_follow.get_transform()
                     pose_to_follow = vehicle_to_follow.get_transform()
 
+                    # distance = PoseManager.get_distance(pose_follow, pose_to_follow)
+                    # vec_between_cars = carla.Vector3D(pose_to_follow.location.x - pose_follow.location.x,
+                    #                                   pose_to_follow.location.y - pose_follow.location.y,
+                    #                                   pose_to_follow.location.z - pose_follow.location.z)
+                    # pose_in_front_of_follow = PoseManager.create_pose_in_front_of(pose_follow, 1)
+                    # vec_forward = carla.Vector3D(pose_in_front_of_follow.location.x - pose_follow.location.x,
+                    #                              pose_in_front_of_follow.location.y - pose_follow.location.y,
+                    #                              pose_in_front_of_follow.location.z - pose_follow.location.z)
+                    # angle = get_angle(vec_between_cars, vec_forward)
+
+
+
+
                     # 获取前后车速度
                     velocity_to_follow = vehicle_to_follow.get_velocity()
                     velocity_follow = vehicle_follow.get_velocity()
@@ -167,10 +183,15 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                         map=map,
                         camera_image=image_rgb  # 传入数组的副本
                     )
+                    # if box is not None:
+                    #     file_path = 'data/box_to_distance_and_angle.txt'
+                    #     with open(file_path, 'a') as file:
+                    #         file.write(f"{box[0]}, {box[1]}, {box[2]}, {box[3]}, {distance}, {angle}\n")
 
                     # info_follow = perceiver_follow.perceive(velocity_follow=velocity_follow, pose_follow=pose_follow, velocity_to_follow=velocity_to_follow, pose_to_follow=pose_to_follow, map=map)
 
                     # 后车控制
+                    # info_follow = DAFInfo(distance, angle)
                     vehicle_follow_control = controller_follow.predict_control(info_follow)
                     vehicle_follow.apply_control(vehicle_follow_control)
 

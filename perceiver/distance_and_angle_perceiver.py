@@ -1,8 +1,10 @@
 import numpy as np
+import torch
 
 from ultralytics import YOLO
 
 from dto.daf_info import DAFInfo
+from perceiver.box_to_distance_and_angle import RegressionModel
 
 
 class DistanceAndAnglePerceiver:
@@ -11,13 +13,10 @@ class DistanceAndAnglePerceiver:
     def __init__(self):
         # 加载预训练的YOLOv8模型
         self.yolo_model = YOLO('model\\yolov8n.pt')
-
-        # 更新相机参数以提高准确性
-        self.camera_matrix = np.array([
-            [1000, 0, 960],
-            [0, 1000, 540],
-            [0, 0, 1]
-        ])
+        self.yolo_model.to('cuda')
+        self.da_model = RegressionModel()
+        self.da_model.load_state_dict(torch.load('model\\box_to_distance_and_angle_model.pth'))
+        self.da_model.eval()
 
         self.min_detection_confidence = 0.6  # 提高检测置信度阈值
 
@@ -59,7 +58,7 @@ class DistanceAndAnglePerceiver:
                     center_dist = np.sqrt((center_x - image_center_x) ** 2 + (center_y - image_center_y) ** 2)
 
                     # 评分标准：优先选择图像中心、较大且置信度高的车辆
-                    score = confidence * (1 - center_dist / 1000) * (box_area / (image.shape[0] * image.shape[1]))
+                    score = confidence * (1 - center_dist / 3000) * (box_area / (image.shape[0] * image.shape[1]))
 
                     if score > best_score:
                         best_score = score
@@ -69,28 +68,10 @@ class DistanceAndAnglePerceiver:
 
 
     def get_distance_and_angle_from_box(self, box, IMAGE_HEIGHT=600, IMAGE_WIDTH=900, IMAGE_FOV=90):
-        if box is None:
-            return None, None
-
-        # 改进的距离估算
-        box_height = box[3] - box[1]
-        box_width = box[2] - box[0]
-        aspect_ratio = box_width / box_height # ?
-
-        # 考虑实际车辆尺寸和透视效果
-        VEHICLE_HEIGHT = 1.5  # 米
-        VEHICLE_WIDTH = 1.8  # 米
-
-        # 使用高度和宽度的组合来估算距离
-        distance_by_height = (VEHICLE_HEIGHT * self.camera_matrix[1, 1]) / box_height
-        distance_by_width = (VEHICLE_WIDTH * self.camera_matrix[0, 0]) / box_width
-        distance = (distance_by_height + distance_by_width) / 2
-
-        # 计算相对位置
-        box_center_x = (box[0] + box[2]) / 2
-        image_center_x = IMAGE_WIDTH / 2
-
-        angle = (box_center_x - image_center_x) * IMAGE_FOV / IMAGE_WIDTH
+        with torch.no_grad():
+            input_tensor = torch.tensor(np.array(box), dtype=torch.float32).unsqueeze(0)
+            output_tensor = self.da_model(input_tensor)
+            distance, angle = output_tensor[0].numpy().tolist()
         return distance, angle
 
 
