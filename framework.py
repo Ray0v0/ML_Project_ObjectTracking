@@ -6,8 +6,7 @@ import time
 import traceback
 import pygame
 
-from dto.daf_info import DAFInfo
-from manager.vec3d_utils import get_angle
+
 
 #TODO: 改成自己的路径
 try:
@@ -34,16 +33,19 @@ from controller.daf_with_navigator_controller import DAFWithNavigatorController
 from controller.dqn_controller import DQNController
 from controller.normal_controller import NormalController
 
-
 from perceiver.god_perceiver import GodPerceiver
 from perceiver.blind_perceiver import BlindPerceiver
 from perceiver.distance_and_angle_perceiver import DistanceAndAnglePerceiver
 
+from evaluator.dist_square_evaluator import DistSquareEvaluator
 
-def start(controller_to_follow, controller_follow, perceiver_to_follow, perceiver_follow, epoch=1):
+
+def start(controller_to_follow, controller_follow, perceiver_to_follow, perceiver_follow, evaluator, epoch=1):
 
     vehicle_list = []
     sensor_list = []
+
+
 
     try:
         # 初始化carla客户端
@@ -52,6 +54,8 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
 
 
         for _ in range(epoch):
+            evaluator.next_ride()
+
             world = client.get_world()
             map = world.get_map()
             blueprint_library = world.get_blueprint_library()
@@ -78,15 +82,15 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 pose_to_follow = pose_manager_to_follow.get_car_pose(0)
                 vehicle_to_follow.set_transform(pose_to_follow)
 
-            # 生成混淆车
-            pose_confuse = PoseManager.create_pose_in_front_of(pose_to_follow, 20, 0.1)
-            bp_confuse = blueprint_library.filter('model3')[0]
-            bp_confuse.set_attribute('color', '0,101,189')
-            vehicle_confuse = world.spawn_actor(
-                bp_confuse,
-                pose_confuse
-            )
-            vehicle_list.append(vehicle_confuse)
+            # # 生成混淆车
+            # pose_confuse = PoseManager.create_pose_in_front_of(pose_to_follow, 20, 0.1)
+            # bp_confuse = blueprint_library.filter('model3')[0]
+            # bp_confuse.set_attribute('color', '0,101,189')
+            # vehicle_confuse = world.spawn_actor(
+            #     bp_confuse,
+            #     pose_confuse
+            # )
+            # vehicle_list.append(vehicle_confuse)
 
 
             # 生成后车
@@ -108,6 +112,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 attach_to=vehicle_follow
             )
             sensor_list.append(collision_sensor)
+            collision_sensor.listen(lambda data: evaluator.collision_occured([velocity_follow]))
 
             bp_camera_rgb = blueprint_library.find('sensor.camera.rgb')
             bp_camera_rgb.set_attribute('image_size_x', '800')
@@ -183,6 +188,8 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     velocity_to_follow = vehicle_to_follow.get_velocity()
                     velocity_follow = vehicle_follow.get_velocity()
 
+                    evaluator.evaluate([pose_to_follow, pose_follow])
+
                     # 后车通过油门刹车转向控制
                     assert(controller_follow.is_traditional_controller())
 
@@ -192,6 +199,12 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                         pose_follow=pose_follow,
                         map=map,
                         camera_image=image_rgb  # 传入数组的副本
+
+                        # velocity_follow=velocity_follow,
+                        # pose_follow=pose_follow,
+                        # velocity_to_follow=velocity_to_follow,
+                        # pose_to_follow=pose_to_follow,
+                        # map=None
                     )
                     # if box is not None:
                     #     file_path = 'data/box_to_distance_and_angle.txt'
@@ -266,10 +279,16 @@ if __name__ == '__main__':
     # 出于可拓展性的考量，前车也可以使用其他自定义的自动寻路算法，只需要将对应的perceiver和controller传入即可
 
     # 后车的控制算法使用简化兼容版DAFController，感知算法没写，暂时使用全知全能的神GodPerceiver占位
-    
+
+    evaluator = DistSquareEvaluator()
+
     # for i in range(1, 21):
     #     file = 'ride' + str(i) + '.p'
+
     start(controller_to_follow=PathFollower('ride7.p'),
           perceiver_to_follow=BlindPerceiver(),
           controller_follow=DAFController(),
-          perceiver_follow=DistanceAndAnglePerceiver())
+          perceiver_follow=DistanceAndAnglePerceiver(),
+          evaluator=evaluator)
+
+    evaluator.save_evaluation()
