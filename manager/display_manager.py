@@ -39,6 +39,9 @@ class DisplayManager:
         image_surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         self.display.blit(image_surface, (0, 0))
 
+    def draw_box(self, box):
+        pygame.draw.rect(self.display, (255, 0, 0), (box[0], box[1], box[2] - box[0], box[3] - box[1]), 2)
+
     # 显示帧率
     def write_fps(self, fps):
         self.display.blit(self.font.render('% 5d FPS (real)' % self.clock.get_fps(), True, (255, 255, 255)),(8, 10))

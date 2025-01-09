@@ -18,7 +18,10 @@ class DistanceAndAnglePerceiver:
         self.da_model.load_state_dict(torch.load('model\\box_to_distance_and_angle_model.pth'))
         self.da_model.eval()
 
-        self.min_detection_confidence = 0.6  # 提高检测置信度阈值
+        self.min_detection_confidence = 0.4  # 提高检测置信度阈值
+        self.last_box_center = [400, 300]
+        self.last_box_move = [0, 0]
+        self.this_box_predict = [400, 300]
 
 
 
@@ -58,12 +61,19 @@ class DistanceAndAnglePerceiver:
                     center_dist = np.sqrt((center_x - image_center_x) ** 2 + (center_y - image_center_y) ** 2)
 
                     # 评分标准：优先选择图像中心、较大且置信度高的车辆
-                    score = confidence * (1 - center_dist / 3000) * (box_area / (image.shape[0] * image.shape[1]))
+                    score = confidence
+                    # score = confidence * (1 - center_dist / 3000) * (box_area / (image.shape[0] * image.shape[1]))
+                    score = score * (2 - abs(self.this_box_predict[0] - center_x) / 400) * (2 - abs(self.this_box_predict[1] - center_y) / 300)
 
                     if score > best_score:
                         best_score = score
                         best_box = box_data
-
+        if best_box is not None:
+            center_x = (best_box[0] + best_box[2]) / 2
+            center_y = (best_box[1] + best_box[3]) / 2
+            self.last_box_move = [center_x - self.last_box_center[0], center_y - self.last_box_center[1]]
+            self.last_box_center = [center_x, center_y]
+            self.this_box_predict = [self.last_box_center[0] + self.last_box_move[0], self.last_box_center[1] + self.last_box_move[1]]
         return best_box
 
 
@@ -114,7 +124,7 @@ class DistanceAndAnglePerceiver:
         # 使用yolo识别前车在图像中的位置
         box = self.get_box_from_image(image_numpy)
         if box is None:
-            return DAFInfo(0, 0, False)
+            return DAFInfo(0, 0, False), None
         else:
             distance, angle = self.get_distance_and_angle_from_box(box)
-            return DAFInfo(distance, angle)
+            return DAFInfo(distance, angle), box

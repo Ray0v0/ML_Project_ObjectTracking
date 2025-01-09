@@ -67,7 +67,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
             )
             vehicle_to_follow.set_simulate_physics(True)
             vehicle_list.append(vehicle_to_follow)
-            vehicle_to_follow.set_autopilot(False)
+            # vehicle_to_follow.set_autopilot(False)
 
             # 前车自动驾驶
             if type(controller_to_follow) is CarlaAutoPilot:
@@ -77,6 +77,16 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 pose_manager_to_follow.load_history_from_file('path', controller_to_follow.file)
                 pose_to_follow = pose_manager_to_follow.get_car_pose(0)
                 vehicle_to_follow.set_transform(pose_to_follow)
+
+            # 生成混淆车
+            pose_confuse = PoseManager.create_pose_in_front_of(pose_to_follow, 20, 0.1)
+            bp_confuse = blueprint_library.filter('model3')[0]
+            bp_confuse.set_attribute('color', '0,101,189')
+            vehicle_confuse = world.spawn_actor(
+                bp_confuse,
+                pose_confuse
+            )
+            vehicle_list.append(vehicle_confuse)
 
 
             # 生成后车
@@ -177,7 +187,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     assert(controller_follow.is_traditional_controller())
 
                     # 后车感知
-                    info_follow = perceiver_follow.perceive(
+                    info_follow, box = perceiver_follow.perceive(
                         velocity_follow=velocity_follow,
                         pose_follow=pose_follow,
                         map=map,
@@ -199,6 +209,8 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     fps_current = round(1.0 / snapshot.timestamp.delta_seconds)
                     display_manager.draw(image_rgb)
                     display_manager.write_fps(fps_current)
+                    if box is not None:
+                        display_manager.draw_box(box)
                     display_manager.flip()
 
             for sensor in sensor_list:
