@@ -8,7 +8,7 @@ import pygame
 
 #TODO: 改成自己的路径
 try:
-    sys.path.append(glob.glob('D:/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob('E:/VIVADO/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
@@ -37,8 +37,9 @@ from perceiver.distance_and_angle_perceiver import DistanceAndAnglePerceiver
 
 from evaluator.dist_square_evaluator import DistSquareEvaluator
 
+from analyzer.path_analyzer import PathAnalyzer
 
-def start(controller_to_follow, controller_follow, perceiver_to_follow, perceiver_follow, evaluator, epoch=1):
+def start(controller_to_follow, controller_follow, perceiver_to_follow, perceiver_follow, evaluator,analyzer, epoch=1):
 
     vehicle_list = []
     sensor_list = []
@@ -187,7 +188,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     velocity_follow = vehicle_follow.get_velocity()
 
                     evaluator.evaluate([pose_to_follow, pose_follow])
-
+                    analyzer.update_path([pose_to_follow, pose_follow])
                     # 后车通过油门刹车转向控制
                     assert(controller_follow.is_traditional_controller())
 
@@ -220,12 +221,12 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     fps_current = round(1.0 / snapshot.timestamp.delta_seconds)
                     display_manager.draw(image_rgb)
                     display_manager.write_fps(fps_current)
-                    if stat == 'safe':
-                        display_manager.write_text(f"Collision Prediction: {stat}", position=(10, 50), size=30,
-                                               color=(0, 255, 0))
-                    elif stat == 'collision':
-                        display_manager.write_text(f"Collision Prediction: {stat}", position=(10, 50), size=30,
-                                                   color=(255, 0, 0))
+                    # if stat == 'safe':
+                    #     display_manager.write_text(f"Collision Prediction: {stat}", position=(10, 50), size=30,
+                    #                            color=(0, 255, 0))
+                    # elif stat == 'collision':
+                    #     display_manager.write_text(f"Collision Prediction: {stat}", position=(10, 50), size=30,
+                    #                                color=(255, 0, 0))
                     if box is not None:
                         display_manager.draw_box(box)
                     display_manager.flip()
@@ -283,9 +284,8 @@ if __name__ == '__main__':
     # 出于可拓展性的考量，前车也可以使用其他自定义的自动寻路算法，只需要将对应的perceiver和controller传入即可
 
     # 后车的控制算法使用简化兼容版DAFController，感知算法没写，暂时使用全知全能的神GodPerceiver占位
-
     evaluator = DistSquareEvaluator()
-
+    analyzer = PathAnalyzer()
     # for i in range(1, 21):
     #     file = 'ride' + str(i) + '.p'
 
@@ -293,6 +293,8 @@ if __name__ == '__main__':
           perceiver_to_follow=BlindPerceiver(),
           controller_follow=DAFController(),
           perceiver_follow=DistanceAndAnglePerceiver(),
-          evaluator=evaluator)
+          evaluator=evaluator,
+          analyzer=analyzer)
+    analyzer.save_trajectory_plot()
 
     evaluator.save_evaluation()

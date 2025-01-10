@@ -10,6 +10,7 @@ class DistSquareEvaluator(Evaluator):
         distance = PoseManager.get_distance(pose_to_follow, pose_follow) ** 2
         self.append_loss(distance)
         print(self.ride_evaluation[-1])
+        
 
     def collision_occurred(self, info):
         speed = get_magnitude(info[0])

@@ -29,7 +29,7 @@ class DistanceAndAnglePerceiver:
         # 新增：初始化碰撞预测模型
         model_tools = build_tools()
         self.network = model_tools.create_network(model_name)
-        self.network.load_weights('D:/Carla_0.9.8/WindowsNoEditor/PythonAPI/CARLA drives/ML_Project_ObjectTracking-master/perceiver/files/inception/model_folder/model_weights_052.ckpt')
+        # self.network.load_weights('D:/Carla_0.9.8/WindowsNoEditor/PythonAPI/CARLA drives/ML_Project_ObjectTracking-master/perceiver/files/inception/model_folder/model_weights_052.ckpt')
         # 存储图像序列
         self.image_seq = deque([], 8)
         self.stat = 'safe'
