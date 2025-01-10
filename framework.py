@@ -137,8 +137,9 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
             if controller_follow.is_traditional_controller():
                 controller_follow.register_display_manager(display_manager)
 
-            # 帧计数器
+            # 帧计数器和帧率累加器
             frame_counter = -1
+            total_fps = 0
 
             with SyncCarlaManager(world, camera_rgb, fps=fps_max) as sync_mode:
                 while True:
@@ -217,8 +218,11 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     vehicle_follow_control = controller_follow.predict_control(info_follow)
                     vehicle_follow.apply_control(vehicle_follow_control)
 
-                    # 绘图
+                    # 计算并累加当前帧率
                     fps_current = round(1.0 / snapshot.timestamp.delta_seconds)
+                    total_fps += fps_current
+                    
+                    # 显示当前帧率
                     display_manager.draw(image_rgb)
                     display_manager.write_fps(fps_current)
                     # if stat == 'safe':
@@ -242,6 +246,12 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     vehicle.destroy()
 
             pygame.quit()
+
+            # 计算并打印平均帧率
+            if frame_counter > 0:
+                avg_fps = total_fps / frame_counter
+                analyzer.save_trajectory_plot('DAFFollowTrackController', ride_filename, avg_fps)
+                print(f"平均帧率: {avg_fps:.2f} FPS")
 
     except:
         traceback.print_exc()
@@ -284,17 +294,22 @@ if __name__ == '__main__':
     # 出于可拓展性的考量，前车也可以使用其他自定义的自动寻路算法，只需要将对应的perceiver和controller传入即可
 
     # 后车的控制算法使用简化兼容版DAFController，感知算法没写，暂时使用全知全能的神GodPerceiver占位
-    evaluator = DistSquareEvaluator()
-    analyzer = PathAnalyzer()
-    # for i in range(1, 21):
-    #     file = 'ride' + str(i) + '.p'
 
-    start(controller_to_follow=PathFollower('ride3.p'),
-          perceiver_to_follow=BlindPerceiver(),
-          controller_follow=DAFController(),
-          perceiver_follow=DistanceAndAnglePerceiver(),
-          evaluator=evaluator,
-          analyzer=analyzer)
-    analyzer.save_trajectory_plot()
+    for i in range(7, 8):
+        if i == 3:
+            continue
+        evaluator = DistSquareEvaluator()
+        analyzer = PathAnalyzer()
 
-    evaluator.save_evaluation()
+        ride_filename = 'ride' + str(i)
+        start(controller_to_follow=PathFollower(ride_filename + '.p'),
+            perceiver_to_follow=BlindPerceiver(),
+            # controller_follow=DAFController(),
+            controller_follow=DAFFollowTrackController(),
+            perceiver_follow=DistanceAndAnglePerceiver(),
+            evaluator=evaluator,
+            analyzer=analyzer)
+        # analyzer.save_trajectory_plot('DAFController', ride_filename)
+
+        evaluator.save_evaluation()
+
