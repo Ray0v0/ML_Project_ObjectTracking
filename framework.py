@@ -304,8 +304,8 @@ if __name__ == '__main__':
         ride_filename = 'ride' + str(i)
         start(controller_to_follow=PathFollower(ride_filename + '.p'),
             perceiver_to_follow=BlindPerceiver(),
-            # controller_follow=DAFController(),
-            controller_follow=DAFFollowTrackController(),
+            controller_follow=DAFController(),
+            # controller_follow=DAFFollowTrackController(),
             perceiver_follow=DistanceAndAnglePerceiver(),
             evaluator=evaluator,
             analyzer=analyzer)

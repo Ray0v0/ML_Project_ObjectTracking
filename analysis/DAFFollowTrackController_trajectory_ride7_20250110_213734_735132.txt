@@ -1,0 +1,10 @@
+Controller: DAFFollowTrackController
+Ride: ride7
+Timestamp: 20250110_213734_735132
+
+Tracking Metrics:
+Mean Error: 13.244m
+Max Error: 22.452m
+Std Error: 4.558m
+Path Length: 3355 points
+Average FPS: 25.00
