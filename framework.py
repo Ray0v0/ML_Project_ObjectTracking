@@ -6,8 +6,6 @@ import time
 import traceback
 import pygame
 
-
-
 #TODO: 改成自己的路径
 try:
     sys.path.append(glob.glob('D:/CARLA_0.9.8/WindowsNoEditor/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
@@ -30,8 +28,8 @@ from controller.path_follower import PathFollower
 from controller.manual_controller import ManualController
 from controller.daf_follow_track_controller import DAFFollowTrackController
 from controller.daf_with_navigator_controller import DAFWithNavigatorController
-from controller.dqn_controller import DQNController
-from controller.normal_controller import NormalController
+#from controller.dqn_controller import DQNController
+#from controller.normal_controller import NormalController
 
 from perceiver.god_perceiver import GodPerceiver
 from perceiver.blind_perceiver import BlindPerceiver
@@ -194,7 +192,7 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     assert(controller_follow.is_traditional_controller())
 
                     # 后车感知
-                    info_follow, box = perceiver_follow.perceive(
+                    info_follow, box , stat = perceiver_follow.perceive(
                         velocity_follow=velocity_follow,
                         pose_follow=pose_follow,
                         map=map,
@@ -222,6 +220,12 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                     fps_current = round(1.0 / snapshot.timestamp.delta_seconds)
                     display_manager.draw(image_rgb)
                     display_manager.write_fps(fps_current)
+                    if stat == 'safe':
+                        display_manager.write_text(f"Collision Prediction: {stat}", position=(10, 50), size=30,
+                                               color=(0, 255, 0))
+                    elif stat == 'collision':
+                        display_manager.write_text(f"Collision Prediction: {stat}", position=(10, 50), size=30,
+                                                   color=(255, 0, 0))
                     if box is not None:
                         display_manager.draw_box(box)
                     display_manager.flip()
@@ -285,7 +289,7 @@ if __name__ == '__main__':
     # for i in range(1, 21):
     #     file = 'ride' + str(i) + '.p'
 
-    start(controller_to_follow=PathFollower('ride7.p'),
+    start(controller_to_follow=PathFollower('ride1.p'),
           perceiver_to_follow=BlindPerceiver(),
           controller_follow=DAFController(),
           perceiver_follow=DistanceAndAnglePerceiver(),
