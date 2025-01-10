@@ -1,12 +1,16 @@
+from collections import deque
+
+import cv2
 import numpy as np
+
 import torch
 
 from ultralytics import YOLO
-
+import tensorflow.compat.v1 as tf
 from dto.daf_info import DAFInfo
 from perceiver.box_to_distance_and_angle import RegressionModel
-
-
+from perceiver.model_architecture import build_tools
+from perceiver.config import *
 class DistanceAndAnglePerceiver:
     """标准感知器类"""
 
@@ -22,16 +26,22 @@ class DistanceAndAnglePerceiver:
         self.last_box_center = [400, 300]
         self.last_box_move = [0, 0]
         self.this_box_predict = [400, 300]
-
-
+        # 新增：初始化碰撞预测模型
+        model_tools = build_tools()
+        self.network = model_tools.create_network(model_name)
+        self.network.load_weights('D:/Carla_0.9.8/WindowsNoEditor/PythonAPI/CARLA drives/ML_Project_ObjectTracking-master/perceiver/files/inception/model_folder/model_weights_052.ckpt')
+        # 存储图像序列
+        self.image_seq = deque([], 8)
+        self.stat = 'safe'
+        self.count = 0
 
     def get_box_from_image(self, camera_image):
         """处理CARLA相机输入，只检测最相关的一辆车"""
 
         if camera_image is None:
             return None
-
         image = camera_image.copy()
+
         results = self.yolo_model(image, conf=self.min_detection_confidence)
         best_box = None
 
@@ -120,11 +130,22 @@ class DistanceAndAnglePerceiver:
         image_numpy = np.frombuffer(camera_image.raw_data, dtype=np.uint8)
         image_numpy = image_numpy.reshape((camera_image.height, camera_image.width, 4))
         image_numpy = image_numpy[:, :, :3]
-
+        _frame = cv2.resize(image_numpy, (210, 140))  # 调整为模型所需的大小
+        self.image_seq.append(_frame)
+        self.count +=1
+        # 如果图像序列达到8帧，则进行预测
+        if(self.count % 50) == 0:
+          self.count=0
+          if len(self.image_seq) == 8:
+             np_image_seqs = np.reshape(np.array(self.image_seq) / 255, (1, 8, 140, 210, 3))  # 归一化并调整形状
+             r = self.network.predict(np_image_seqs)
+             self.stat = ['safe', 'collision'][np.argmax(r, 1)[0]]  # 获取预测结果
         # 使用yolo识别前车在图像中的位置
         box = self.get_box_from_image(image_numpy)
         if box is None:
-            return DAFInfo(0, 0, False), None
+            return DAFInfo(10, 0, False), None , self.stat
         else:
             distance, angle = self.get_distance_and_angle_from_box(box)
-            return DAFInfo(distance, angle), box
+            if distance >= 12:
+                self.stat = 'safe'
+            return DAFInfo(distance, angle), box , self.stat
