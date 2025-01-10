@@ -110,8 +110,8 @@ def start(controller_to_follow, controller_follow, perceiver_to_follow, perceive
                 carla.Transform(),
                 attach_to=vehicle_follow
             )
-            sensor_list.append(collision_sensor)
-            collision_sensor.listen(lambda data: evaluator.collision_occured([velocity_follow]))
+            # sensor_list.append(collision_sensor)
+            # collision_sensor.listen(lambda data: evaluator.collision_occured([velocity_follow]))
 
             bp_camera_rgb = blueprint_library.find('sensor.camera.rgb')
             bp_camera_rgb.set_attribute('image_size_x', '800')
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     # for i in range(1, 21):
     #     file = 'ride' + str(i) + '.p'
 
-    start(controller_to_follow=PathFollower('ride1.p'),
+    start(controller_to_follow=PathFollower('ride3.p'),
           perceiver_to_follow=BlindPerceiver(),
           controller_follow=DAFController(),
           perceiver_follow=DistanceAndAnglePerceiver(),
